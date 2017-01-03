@@ -5,29 +5,29 @@ import java.util.Random;
  
 public class PointKMean {
  
-    private double x = 0;
-    private double y = 0;
+    private int x = 0;
+    private int y = 0;
     private int cluster_number = 0;
  
-    public PointKMean(double x, double y)
+    public PointKMean(int x, int y)
     {
         this.setX(x);
         this.setY(y);
     }
     
-    public void setX(double x) {
+    public void setX(int x) {
         this.x = x;
     }
     
-    public double getX()  {
+    public int getX()  {
         return this.x;
     }
     
-    public void setY(double y) {
+    public void setY(int y) {
         this.y = y;
     }
     
-    public double getY() {
+    public int getY() {
         return this.y;
     }
     
@@ -47,8 +47,8 @@ public class PointKMean {
     //Creates random point
     protected static PointKMean createRandomPoint(int max_x, int max_y) {
       Random r = new Random();
-      double x = max_x * r.nextDouble();
-      double y = max_y * r.nextDouble();
+      int x = max_x * r.nextInt();
+      int y = max_y * r.nextInt();
       return new PointKMean(x,y);
     }
     

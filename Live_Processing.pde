@@ -2,209 +2,316 @@ import processing.video.*;
 import java.util.ArrayList;
 import java.util.List;
 
+int CHORD_NUM = 3;
+String[] chordsArray = {"laMineur","sol","miMineur"};
+java.lang.reflect.Method method;
+int chordIndex = 0;
 
 Capture video;
+color blue = color(0, 0, 255);
+color green = color(0, 255, 0);
+color yellow = color(255, 255, 0);
+color red = color(255, 0, 0);
+color purple = color(255, 0, 255);
 
-//Number of Clusters. This metric should be related to the number of points
-    private int NUM_CLUSTERS = 4;    
-    //Number of Points
-    private int NUM_POINTS = 15;
-    //Min and Max X and Y
-    private static final int MAX_COORDINATE_X = 640;
-    private static final int MAX_COORDINATE_Y = 480;
-    
-    private List points = new ArrayList();
-    private List clusters = new ArrayList();
-      
-    
+
 void setup() {
-   size(640,480);
-   
-   //printArray(Capture.list());
-   
-   video = new Capture(this, 640, 480, 30);
-   video.start();
+  size(640, 480);   
+  video = new Capture(this, 640, 480, 30);
+  video.start();
 }
 
 void captureEvent(Capture video) {
-   video.read(); 
+  video.read();
+}
+
+
+//detect if the point is dominantly green
+boolean totalColor(color px)
+{
+  return green(px) >150 && red(px)+blue(px) <280;
 }
 
 void draw() {
-   background(0);
-   pushMatrix();
-   
-     scale(-1,1);
-     //image(video, -width, 0);
-     //image(webcam.get(),-width,0);
-   
-     video.loadPixels();
-      // Create an opaque image of the same size as the original
-      PImage luminanceDetector = createImage(video.width, video.height, RGB);
-      for (int y = 0; y < video.height; y++) { // Skip top and bottom edges
-        for (int x = 0; x < video.width; x++) { // Skip left and right edges
-          color px = video.get(x,y);
-          if(red(px) + green(px) + blue(px) > 764.8 )
+  
+  if (keyPressed) {
+    if (key == 'p' )
+    {
+      chordIndex = (chordIndex + 1) % CHORD_NUM;
+     System.out.println(chordIndex);
+    }
+  } 
+
+  
+  background(0);
+  pushMatrix();
+
+  scale(-1, 1);
+
+  video.loadPixels();
+  // Create an opaque image of the same size as the original
+  PImage luminanceDetector = createImage(video.width, video.height, RGB);
+  List points = new ArrayList<PointKMean>();
+  for (int y = 2; y < video.height -2; y++) {
+    for (int x = 2; x < video.width -2; x++) { //we don't take the border
+      color px = video.get(x, y);
+      color px_up = video.get(x, y-1);
+      color px_down = video.get(x, y+1);
+      color px_left = video.get(x-1, y);
+      color px_right = video.get(x+1, y);    
+      color px_up2 = video.get(x, y-2);
+      color px_down2 = video.get(x, y+2);
+      color px_left2 = video.get(x-2, y);
+      color px_right2 = video.get(x+2, y);
+
+      //detect an area of 9 green pixels, to erase false positive
+      if (totalColor(px) &&  totalColor(px_up) && totalColor(px_down) 
+        && totalColor(px_left) && totalColor(px_right)&&  totalColor(px_up2) && totalColor(px_down2) 
+        && totalColor(px_left2) && totalColor(px_right2) )
+      {
+        luminanceDetector.pixels[y * video.width + x] = red; //color every detected pixels in red
+        PointKMean p = new PointKMean(x, y);
+        if (points.size() == 0)
+        {
+          p.setCluster(1);
+          points.add(p); //add the point to the list of detected points if the list is empty
+        } else
+        {
+          
+          //add the point to the list if the list is not empty, and there is no close pixel already added
+          boolean close = false;
+          for (int i = 0; i< points.size(); i++)
+          { 
+            if (PointKMean.distance(p, (PointKMean)points.get(i)) < 30 ) //set arbitrarily a minimum distance between 2 clusters
+            {
+              close = true;
+              ((PointKMean)points.get(i)).setCluster(((PointKMean)points.get(i)).getCluster()+1);
+            }
+          }
+          if (!close)
           {
-             luminanceDetector.pixels[y * video.width + x] = color(255,0,0);
-          }       
-          else {
-              luminanceDetector.pixels[y * video.width + x] = px;
+            points.add(p);
+            p.setCluster(1);
           }
         }
+      } else {
+        luminanceDetector.pixels[y * video.width + x] = px;
       }
-      init(luminanceDetector);
-      calculate(luminanceDetector);
+    }
+  }
+  
+  //erase very small clusters
+  for (int i = 0; i < points.size(); i++)
+  {
+    if (((PointKMean)points.get(i)).getCluster() <3) 
+    {
+      points.remove(i);
+    }
+  }
+
+  if (points.size() == 4) //if only our markers are detected
+  {  
+    PointKMean[] sortedPoints =  sortPoints(points); //sort the list of clusters
+    PointKMean p1 = sortedPoints[0];
+    PointKMean p2 = sortedPoints[1];
+    PointKMean p3 = sortedPoints[2];
+    PointKMean p4 = sortedPoints[3];
+
+    colorAround(p1, luminanceDetector, blue);
+    colorAround(p2, luminanceDetector, blue);
+    colorAround(p3, luminanceDetector, blue);
+    colorAround(p4, luminanceDetector, blue);
+
+    //find the perspective matrix
+    float [][] matrix = {
+      {p2.getX() - p1.getX(), p3.getX() - p1.getX(), p1.getX()}, 
+      {p2.getY() - p1.getY(), p3.getY() - p1.getY(), p1.getY()}, 
+      {0, 0, 1}
+    };
+
+//draw chord
+    //miMineur(matrix, luminanceDetector);
+    
+   /* try {
+      method = this.getClass().getMethod(chordsArray[chordIndex]);
+    } catch (SecurityException e) { }
+      catch (NoSuchMethodException e) { }
       
-      for(int i=0; i< points.size();i++)
+    try {
+      method.invoke(this, matrix, luminanceDetector);
+    } catch (Exception e) { System.out.println("error"); } //C MOCHE JE SAIS MAIS PROCESSING N'ACCEPTAIT PAS InvocationTargetException mais bon :@
+      /*catch (IllegalArgumentException e) { }
+      catch (IllegalAccessException e) { }
+      catch (InvocationTargetException e) { }*/
+      
+      switch(chordIndex)
       {
-        PointKMean p = (PointKMean)points.get(i);
-        luminanceDetector.pixels[(int)p.getY() * video.width + (int)p.getX()] = color(0,255,0);
+        case 1:
+        miMineur(matrix, luminanceDetector);
+        break;
+        case 2:
+        laMineur(matrix, luminanceDetector);
+        break;
+        default:
+        sol(matrix, luminanceDetector);
+        break;
       }
-      luminanceDetector.updatePixels();
-      image(luminanceDetector, -width, 0,width, height); // Draw the new image     
-      
-    popMatrix();
+    
+  }
+  luminanceDetector.updatePixels();
+
+  image(luminanceDetector, -width, 0, width, height); // Draw the new image     
+  popMatrix();
 }
 
-public List createRandomPoints(int max_x, int max_y, int number, PImage luminanceDetector) {
-      List points = new ArrayList(number);
-      for(int i = 0; i < number; i++) {
-        PointKMean p = PointKMean.createRandomPoint(max_x,max_y);
-        while(luminanceDetector.pixels[(int)p.getY() * video.width + (int)p.getX()] != color(255,0,0))
-        {
-          p = PointKMean.createRandomPoint(max_x,max_y);
-        }
-        points.add(p);
-      }
-      return points;
-    }
-    
-  //Initializes the process
-    public void init( PImage luminanceDetector) {
-      //Create Points
-      points = createRandomPoints(MAX_COORDINATE_X,MAX_COORDINATE_Y,NUM_POINTS,luminanceDetector);
-      
-      //Create Clusters
-      //Set Random Centroids
-      for (int i = 0; i < NUM_CLUSTERS; i++) {
-        Cluster cluster = new Cluster(i);
-        PointKMean centroid = PointKMean.createRandomPoint(MAX_COORDINATE_X,MAX_COORDINATE_Y);
-        cluster.setCentroid(centroid);
-        clusters.add(cluster);
-      }
-      
-      //Print Initial state
-      plotClusters();
-    }
+PointKMean[] sortPoints( List points)
+{
 
-  private void plotClusters() {
-      for (int i = 0; i < NUM_CLUSTERS; i++) {
-        Cluster c = (Cluster)clusters.get(i);
-        c.plotCluster();
-      }
+  PointKMean[] pointsSorted = new PointKMean[4];
+  //variables before being sorted
+  PointKMean _p1 = (PointKMean)points.get(0);
+  PointKMean _p2 = (PointKMean)points.get(1);
+  PointKMean _p3 = (PointKMean)points.get(2);
+  PointKMean _p4 = (PointKMean)points.get(3);
+
+  //find the 2 smallest Y among the 4 points
+  PointKMean min1Y = _p1;
+  int index =0;
+  for (int j=0; j< points.size(); j++)
+  {
+    if (((PointKMean)points.get(j)).getY()< min1Y.getY())
+    {
+      min1Y = (PointKMean)points.get(j);
+      index = j;
     }
-    
-  //The process to calculate the K Means, with iterating method.
-    public void calculate( PImage luminanceDetector) {
-        boolean finish = false;
-        int iteration = 0;
-        
-        // Add in new data, one at a time, recalculating centroids with each new one. 
-        while(!finish) {
-          //Clear cluster state
-          clearClusters();
-          
-          List lastCentroids = getCentroids();
-          
-          //Assign points to the closer cluster
-          assignCluster();
-            
-            //Calculate new centroids.
-          calculateCentroids();
-          
-          iteration++;
-          
-          List currentCentroids = getCentroids();
-          
-          //Calculates total distance between new and old Centroids
-          double distance = 0;
-          for(int i = 0; i < lastCentroids.size(); i++) {
-            distance += PointKMean.distance((PointKMean)lastCentroids.get(i),(PointKMean)currentCentroids.get(i));
-          }
-          System.out.println("#################");
-          System.out.println("Iteration: " + iteration);
-          System.out.println("Centroid distances: " + distance);
-          plotClusters();
-                    
-          if(distance == 0) {
-            finish = true;
-          }
-        }
+  }
+  points.remove(index);
+  PointKMean min2Y = (PointKMean)points.get(0);
+  index =0;
+  for (int j=0; j< points.size(); j++)
+  {
+    if (((PointKMean)points.get(j)).getY()< min2Y.getY())
+    {
+      min2Y = (PointKMean)points.get(j);
+      index = j;
     }
-    
-    private void clearClusters() {
-      for(int i = 0 ; i < clusters.size(); i++) {
-        Cluster c = (Cluster)clusters.get(i);
-        c.clear();
-      }
-    }
-    
-    private List getCentroids() {
-      List centroids = new ArrayList(NUM_CLUSTERS);
-       for(int i = 0 ; i < clusters.size(); i++) {
-        Cluster c = (Cluster)clusters.get(i);
-        PointKMean aux = c.getCentroid();
-        PointKMean point = new PointKMean(aux.getX(),aux.getY());
-        centroids.add(point);
-      }
-      return centroids;
-    }
-    
-    private void assignCluster() {
-        double max = Double.MAX_VALUE;
-        double min = max; 
-        int cluster = 0;                 
-        double distance = 0.0; 
-        
-       for(int j = 0 ; j < points.size(); j++) {
-        PointKMean p = (PointKMean)points.get(j);
-          min = max;
-            for(int i = 0; i < NUM_CLUSTERS; i++) {
-              Cluster c = (Cluster)clusters.get(i);
-                distance = PointKMean.distance(p, c.getCentroid());
-                if(distance < min){
-                    min = distance;
-                    cluster = i;
-                }
-            }
-            p.setCluster(cluster);
-            
-             Cluster clusterFinal = (Cluster)clusters.get(cluster);
-            clusterFinal.addPoint(p);
-        }
-    }
-    
-    private void calculateCentroids() {
-       for(int i = 0 ; i < clusters.size(); i++) {
-        Cluster c = (Cluster)clusters.get(i);
-            double sumX = 0;
-            double sumY = 0;
-            List list = c.getPoints();
-            int n_points = list.size();
-            
-            for(int j = 0 ; j < points.size(); j++) {
-        PointKMean p = (PointKMean)points.get(j);
-              sumX += p.getX();
-                sumY += p.getY();
-            }
-            
-            PointKMean centroid = c.getCentroid();
-            if(n_points > 0) {
-              double newX = sumX / n_points;
-              double newY = sumY / n_points;
-                centroid.setX(newX);
-                centroid.setY(newY);
-            }
-        }
-    }
+  }
+  points.remove(index);
+
+
+  //find the smallest X amongs the smallest Y
+  if (min1Y.getX() <= min2Y.getX())
+  {
+    pointsSorted[3] = min1Y;
+    pointsSorted[2] = min2Y;
+  } else
+  {
+    pointsSorted[3] = min2Y;
+    pointsSorted[2] = min1Y;
+  }
+  //find the smallest X among the biggest Y
+  min1Y = (PointKMean)points.get(0);
+  min2Y = (PointKMean)points.get(1);
+  if (min1Y.getX() <= min2Y.getX())
+  {
+    pointsSorted[1] = min1Y;
+    pointsSorted[0] = min2Y;
+  } else
+  {
+    pointsSorted[1] = min2Y;
+    pointsSorted[0] = min1Y;
+  }
+
+  return pointsSorted;
+}
+
+void colorAround(PointKMean p, PImage luminanceDetector, color couleur)
+{
+  luminanceDetector.pixels[(p.getY()-1) * width + p.getX()] = couleur;
+  luminanceDetector.pixels[(p.getY()+1) * width + p.getX()] = couleur;
+  luminanceDetector.pixels[p.getY() * width + (p.getX()-1)] = couleur;
+  luminanceDetector.pixels[p.getY() * width + (p.getX()+1)] = couleur;
+
+  luminanceDetector.pixels[(p.getY()-2) * width + p.getX()] =couleur;
+  luminanceDetector.pixels[(p.getY()+2) * width + p.getX()] = couleur;
+  luminanceDetector.pixels[p.getY() * width + (p.getX()-2)] = couleur;
+  luminanceDetector.pixels[p.getY() * width + (p.getX()+2)] = couleur;
+
+  luminanceDetector.pixels[(p.getY()-1) * width + p.getX()-1] =couleur;
+  luminanceDetector.pixels[(p.getY()+1) * width + p.getX()+1] = couleur;
+  luminanceDetector.pixels[(p.getY()+1) * width + p.getX()-1] =couleur;
+  luminanceDetector.pixels[(p.getY()-1) * width + p.getX()+1] = couleur;
+}
+
+void bigColorAround(PointKMean p, PImage luminanceDetector, color couleur)
+{
+  colorAround( p, luminanceDetector, couleur);
+  colorAround( new PointKMean(p.getX()+1, p.getY()), luminanceDetector, couleur);
+  colorAround( new PointKMean(p.getX()-1, p.getY()), luminanceDetector, couleur);
+  colorAround( new PointKMean(p.getX(), p.getY()+1), luminanceDetector, couleur);
+  colorAround( new PointKMean(p.getX(), p.getY()-1), luminanceDetector, couleur);
+}
+
+
+void display(String s, PointKMean p)
+{
+  System.out.println(s + " X: " + p.getX() + " Y: "+p.getY());
+}
+
+void laMineur(float[][] matrix, PImage luminanceDetector)
+{
+  PointKMean index = calculPoint(2.0f, 0.5f, matrix);
+  bigColorAround(index, luminanceDetector, red);
+
+  PointKMean middle = calculPoint(5.0f, 1.7f, matrix);
+  bigColorAround(middle, luminanceDetector, red);
+
+  PointKMean ring = calculPoint(6.5f, 1.0f, matrix);
+  bigColorAround(ring, luminanceDetector, red);
+}
+
+void sol(float[][] matrix, PImage luminanceDetector)
+{
+  PointKMean index = calculPoint(6.0f, 2.5f, matrix);
+  bigColorAround(index, luminanceDetector, red);
+
+  PointKMean middle = calculPoint(9.0f, 3.3f, matrix);
+  bigColorAround(middle, luminanceDetector, red);
+
+  PointKMean ring = calculPoint(9.0f, -0.6f, matrix);
+  bigColorAround(ring, luminanceDetector, red);
+}
+
+void miMineur(float[][] matrix, PImage luminanceDetector)
+{
+  PointKMean middle = calculPoint(5.5f, 2.3f, matrix);
+  bigColorAround(middle, luminanceDetector, red);
+
+  PointKMean ring = calculPoint(7.0f, 1.5f, matrix);
+  bigColorAround(ring, luminanceDetector, red);
+}
+
+//bring the coordinate in the guitar frame between 0 and 1
+float convertX(float value)
+{
+  return (float)(value/14.5f);
+}
+
+float convertY(float value)
+{
+  return (float)(value/3.0f);
+}
+
+
+//pointX and pointY are the coordinate of the position in the guitar frame
+PointKMean calculPoint(float pointX, float pointY, float[][] matrix)
+{
+  
+  float[] point = {convertX(pointX), convertY(pointY), 1};
+  float xAfter = (matrix[0][0] * point[0] + matrix[0][1] * point[1] +matrix[0][2]);
+  float yAfter = (matrix[1][0] * point[0] + matrix[1][1] * point[1] +matrix[1][2]);
+  float zAfter = (matrix[2][0] * point[0] + matrix[2][1] * point[1] +matrix[2][2]);
+
+  PointKMean finger = new PointKMean((int)(xAfter/zAfter), (int)(yAfter/zAfter));
+  return finger;
+}
