@@ -3,16 +3,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 int CHORD_NUM = 3;
-String[] chordsArray = {"laMineur","sol","miMineur"};
+String[] chordsArray = {"laMineur", "sol", "miMineur"};
 java.lang.reflect.Method method;
 int chordIndex = 0;
 
 Capture video;
-color blue = color(0, 0, 255);
-color green = color(0, 255, 0);
-color yellow = color(255, 255, 0);
-color red = color(255, 0, 0);
-color purple = color(255, 0, 255);
+color red = color(255, 0, 0); //index
+color green = color(0, 255, 0); //middle
+color blue = color(0, 0, 255); //ring
+
+
+color yellow = color(255, 255, 0); //detected
+color purple = color(0, 0, 0); //marker
+
+PointKMean[] pointsPrevious = new PointKMean[4];
 
 
 void setup() {
@@ -29,20 +33,20 @@ void captureEvent(Capture video) {
 //detect if the point is dominantly green
 boolean totalColor(color px)
 {
-  return green(px) >150 && red(px)+blue(px) <280;
+  return green(px) >95 && red(px)+blue(px) <170;
 }
 
 void draw() {
-  
+
   if (keyPressed) {
     if (key == 'p' )
     {
       chordIndex = (chordIndex + 1) % CHORD_NUM;
-     System.out.println(chordIndex);
+      System.out.println(chordIndex);
     }
   } 
 
-  
+
   background(0);
   pushMatrix();
 
@@ -69,7 +73,7 @@ void draw() {
         && totalColor(px_left) && totalColor(px_right)&&  totalColor(px_up2) && totalColor(px_down2) 
         && totalColor(px_left2) && totalColor(px_right2) )
       {
-        luminanceDetector.pixels[y * video.width + x] = red; //color every detected pixels in red
+        luminanceDetector.pixels[y * video.width + x] = yellow; //color every detected pixels in red
         PointKMean p = new PointKMean(x, y);
         if (points.size() == 0)
         {
@@ -77,7 +81,7 @@ void draw() {
           points.add(p); //add the point to the list of detected points if the list is empty
         } else
         {
-          
+
           //add the point to the list if the list is not empty, and there is no close pixel already added
           boolean close = false;
           for (int i = 0; i< points.size(); i++)
@@ -99,7 +103,7 @@ void draw() {
       }
     }
   }
-  
+
   //erase very small clusters
   for (int i = 0; i < points.size(); i++)
   {
@@ -112,15 +116,18 @@ void draw() {
   if (points.size() == 4) //if only our markers are detected
   {  
     PointKMean[] sortedPoints =  sortPoints(points); //sort the list of clusters
+    sortedPoints = checkStability(sortedPoints); //Stabilize de detection
     PointKMean p1 = sortedPoints[0];
     PointKMean p2 = sortedPoints[1];
     PointKMean p3 = sortedPoints[2];
     PointKMean p4 = sortedPoints[3];
 
-    colorAround(p1, luminanceDetector, blue);
-    colorAround(p2, luminanceDetector, blue);
-    colorAround(p3, luminanceDetector, blue);
-    colorAround(p4, luminanceDetector, blue);
+
+
+    colorAround(p1, luminanceDetector, purple);
+    colorAround(p2, luminanceDetector, purple);
+    colorAround(p3, luminanceDetector, purple);
+    colorAround(p4, luminanceDetector, purple);
 
     //find the perspective matrix
     float [][] matrix = {
@@ -129,34 +136,19 @@ void draw() {
       {0, 0, 1}
     };
 
-//draw chord
-    //miMineur(matrix, luminanceDetector);
-    
-   /* try {
-      method = this.getClass().getMethod(chordsArray[chordIndex]);
-    } catch (SecurityException e) { }
-      catch (NoSuchMethodException e) { }
-      
-    try {
-      method.invoke(this, matrix, luminanceDetector);
-    } catch (Exception e) { System.out.println("error"); } //C MOCHE JE SAIS MAIS PROCESSING N'ACCEPTAIT PAS InvocationTargetException mais bon :@
-      /*catch (IllegalArgumentException e) { }
-      catch (IllegalAccessException e) { }
-      catch (InvocationTargetException e) { }*/
-      
-      switch(chordIndex)
-      {
-        case 1:
-        miMineur(matrix, luminanceDetector);
-        break;
-        case 2:
-        laMineur(matrix, luminanceDetector);
-        break;
-        default:
-        sol(matrix, luminanceDetector);
-        break;
-      }
-    
+    //draw chord      
+    switch(chordIndex)
+    {
+    case 1:
+      miMineur(matrix, luminanceDetector);
+      break;
+    case 2:
+      laMineur(matrix, luminanceDetector);
+      break;
+    default:
+      sol(matrix, luminanceDetector);
+      break;
+    }
   }
   luminanceDetector.updatePixels();
 
@@ -250,6 +242,16 @@ void bigColorAround(PointKMean p, PImage luminanceDetector, color couleur)
   colorAround( new PointKMean(p.getX()-1, p.getY()), luminanceDetector, couleur);
   colorAround( new PointKMean(p.getX(), p.getY()+1), luminanceDetector, couleur);
   colorAround( new PointKMean(p.getX(), p.getY()-1), luminanceDetector, couleur);
+
+  colorAround( new PointKMean(p.getX()+2, p.getY()), luminanceDetector, couleur);
+  colorAround( new PointKMean(p.getX()-2, p.getY()), luminanceDetector, couleur);
+  colorAround( new PointKMean(p.getX(), p.getY()+2), luminanceDetector, couleur);
+  colorAround( new PointKMean(p.getX(), p.getY()-2), luminanceDetector, couleur);
+
+  colorAround( new PointKMean(p.getX()+1, p.getY()+1), luminanceDetector, couleur);
+  colorAround( new PointKMean(p.getX()-1, p.getY()-1), luminanceDetector, couleur);
+  colorAround( new PointKMean(p.getX()-1, p.getY()+1), luminanceDetector, couleur);
+  colorAround( new PointKMean(p.getX()+1, p.getY()-1), luminanceDetector, couleur);
 }
 
 
@@ -264,10 +266,10 @@ void laMineur(float[][] matrix, PImage luminanceDetector)
   bigColorAround(index, luminanceDetector, red);
 
   PointKMean middle = calculPoint(5.0f, 1.7f, matrix);
-  bigColorAround(middle, luminanceDetector, red);
+  bigColorAround(middle, luminanceDetector, green);
 
   PointKMean ring = calculPoint(6.5f, 1.0f, matrix);
-  bigColorAround(ring, luminanceDetector, red);
+  bigColorAround(ring, luminanceDetector, blue);
 }
 
 void sol(float[][] matrix, PImage luminanceDetector)
@@ -276,10 +278,10 @@ void sol(float[][] matrix, PImage luminanceDetector)
   bigColorAround(index, luminanceDetector, red);
 
   PointKMean middle = calculPoint(9.0f, 3.3f, matrix);
-  bigColorAround(middle, luminanceDetector, red);
+  bigColorAround(middle, luminanceDetector, green);
 
   PointKMean ring = calculPoint(9.0f, -0.6f, matrix);
-  bigColorAround(ring, luminanceDetector, red);
+  bigColorAround(ring, luminanceDetector, blue);
 }
 
 void miMineur(float[][] matrix, PImage luminanceDetector)
@@ -288,7 +290,7 @@ void miMineur(float[][] matrix, PImage luminanceDetector)
   bigColorAround(middle, luminanceDetector, red);
 
   PointKMean ring = calculPoint(7.0f, 1.5f, matrix);
-  bigColorAround(ring, luminanceDetector, red);
+  bigColorAround(ring, luminanceDetector, green);
 }
 
 //bring the coordinate in the guitar frame between 0 and 1
@@ -306,7 +308,7 @@ float convertY(float value)
 //pointX and pointY are the coordinate of the position in the guitar frame
 PointKMean calculPoint(float pointX, float pointY, float[][] matrix)
 {
-  
+
   float[] point = {convertX(pointX), convertY(pointY), 1};
   float xAfter = (matrix[0][0] * point[0] + matrix[0][1] * point[1] +matrix[0][2]);
   float yAfter = (matrix[1][0] * point[0] + matrix[1][1] * point[1] +matrix[1][2]);
@@ -314,4 +316,30 @@ PointKMean calculPoint(float pointX, float pointY, float[][] matrix)
 
   PointKMean finger = new PointKMean((int)(xAfter/zAfter), (int)(yAfter/zAfter));
   return finger;
+}
+
+PointKMean[] checkStability(List points)
+{
+
+  if (pointsPrevious.size() !=0)
+  {
+    if (distance((PointKMean)points[0], (PointKMean)pointsPrevious[0]) < 3)
+    {
+      points[0] = (PointKMean)pointsPrevious[0];
+    }
+    if (distance((PointKMean)points[1], (PointKMean)pointsPrevious[1]) < 3)
+    {
+      points[1] = (PointKMean)pointsPrevious[1];
+    }
+    if (distance((PointKMean)points[2], (PointKMean)pointsPrevious[2]) < 3)
+    {
+      points[2] = (PointKMean)pointsPrevious[2];
+    }
+    if (distance((PointKMean)points[3], (PointKMean)pointsPrevious[3]) < 3)
+    {
+      points[3] = (PointKMean)pointsPrevious[3];
+    }
+  }
+  pointsPrevious = points;
+  return points;
 }
