@@ -2,26 +2,24 @@ import processing.video.*;
 import java.util.ArrayList;
 import java.util.List;
 
-int CHORD_NUM = 3;
-String[] chordsArray = {"laMineur", "sol", "miMineur"};
-java.lang.reflect.Method method;
 int chordIndex = 0;
 
 Capture video;
 color red = color(255, 0, 0); //index
-color green = color(0, 255, 0); //middle
+color green = color(0, 0, 0); //middle
 color blue = color(0, 0, 255); //ring
 
 
 color yellow = color(255, 255, 0); //detected
-color purple = color(0, 0, 0); //marker
+color purple = color(0, 255, 0); //marker
 
 PointKMean[] pointsPrevious = new PointKMean[4];
-
+boolean initialized = false;
+int frames =0;
 
 void setup() {
   size(640, 480);   
-  video = new Capture(this, 640, 480, 30);
+    video = new Capture(this, Capture.list()[1],640, 480, 30);
   video.start();
 }
 
@@ -33,17 +31,25 @@ void captureEvent(Capture video) {
 //detect if the point is dominantly green
 boolean totalColor(color px)
 {
-  return green(px) >95 && red(px)+blue(px) <170;
+  return green(px) >160 && red(px)+blue(px) <300;
 }
 
 void draw() {
 
   if (keyPressed) {
-    if (key == 'p' )
+    if (key == '1' )
     {
-      chordIndex = (chordIndex + 1) % CHORD_NUM;
-      System.out.println(chordIndex);
+      chordIndex = 1;
     }
+    if (key == '2' )
+    {
+      chordIndex = 2;
+    }
+    if (key == '3' )
+    {
+      chordIndex = 3;
+    }
+    System.out.println(chordIndex);
   } 
 
 
@@ -113,10 +119,21 @@ void draw() {
     }
   }
 
-  if (points.size() == 4) //if only our markers are detected
+  if (points.size() == 4 || (initialized && frames <8)) //if only our markers are detected
   {  
-    PointKMean[] sortedPoints =  sortPoints(points); //sort the list of clusters
-    sortedPoints = checkStability(sortedPoints); //Stabilize de detection
+    PointKMean[] sortedPoints;
+    if(points.size() == 4)
+    {
+      sortedPoints =  sortPoints(points); //sort the list of clusters
+      sortedPoints = checkStability(sortedPoints); //Stabilize de detection
+      frames = 0; //reset the counter to 0
+    }
+    else
+    {
+      sortedPoints = pointsPrevious;
+      frames++;
+    }
+    
     PointKMean p1 = sortedPoints[0];
     PointKMean p2 = sortedPoints[1];
     PointKMean p3 = sortedPoints[2];
@@ -318,28 +335,29 @@ PointKMean calculPoint(float pointX, float pointY, float[][] matrix)
   return finger;
 }
 
-PointKMean[] checkStability(List points)
+PointKMean[] checkStability(PointKMean[]  points)
 {
 
-  if (pointsPrevious.size() !=0)
+  if (initialized)
   {
-    if (distance((PointKMean)points[0], (PointKMean)pointsPrevious[0]) < 3)
+    if (PointKMean.distance((PointKMean)points[0], (PointKMean)pointsPrevious[0]) < 3)
     {
       points[0] = (PointKMean)pointsPrevious[0];
     }
-    if (distance((PointKMean)points[1], (PointKMean)pointsPrevious[1]) < 3)
+    if (PointKMean.distance((PointKMean)points[1], (PointKMean)pointsPrevious[1]) < 3)
     {
       points[1] = (PointKMean)pointsPrevious[1];
     }
-    if (distance((PointKMean)points[2], (PointKMean)pointsPrevious[2]) < 3)
+    if (PointKMean.distance((PointKMean)points[2], (PointKMean)pointsPrevious[2]) < 3)
     {
       points[2] = (PointKMean)pointsPrevious[2];
     }
-    if (distance((PointKMean)points[3], (PointKMean)pointsPrevious[3]) < 3)
+    if (PointKMean.distance((PointKMean)points[3], (PointKMean)pointsPrevious[3]) < 3)
     {
       points[3] = (PointKMean)pointsPrevious[3];
     }
   }
   pointsPrevious = points;
+  initialized = true;
   return points;
 }
