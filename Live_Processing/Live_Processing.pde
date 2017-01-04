@@ -10,7 +10,7 @@ color green = color(0, 0, 0); //middle
 color blue = color(0, 0, 255); //ring
 
 
-color yellow = color(255, 255, 0); //detected
+color yellow = color(255, 0, 0); //detected
 color purple = color(0, 255, 0); //marker
 
 PointKMean[] pointsPrevious = new PointKMean[4];
@@ -19,7 +19,8 @@ int frames =0;
 
 void setup() {
   size(640, 480);   
-    video = new Capture(this, Capture.list()[1],640, 480, 30);
+    //video = new Capture(this, 640, 480, 30);
+    video = new Capture(this, "name=Microsoft® LifeCam VX-2000,size=640x480,fps=30");
   video.start();
 }
 
@@ -31,7 +32,7 @@ void captureEvent(Capture video) {
 //detect if the point is dominantly green
 boolean totalColor(color px)
 {
-  return green(px) >160 && red(px)+blue(px) <300;
+  return green(px) >100 && red(px)+blue(px) <170;
 }
 
 void draw() {
