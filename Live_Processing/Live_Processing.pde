@@ -20,7 +20,8 @@ int frames =0;
 void setup() {
   size(640, 480);   
     //video = new Capture(this, 640, 480, 30);
-    video = new Capture(this, "name=Microsoft® LifeCam VX-2000,size=640x480,fps=30");
+    //video = new Capture(this, "name=Microsoft® LifeCam VX-2000,size=640x480,fps=30");
+    video = new Capture(this, "name=Logitech HD Webcam C615,size=640x480,fps=30");
   video.start();
 }
 
@@ -32,7 +33,7 @@ void captureEvent(Capture video) {
 //detect if the point is dominantly green
 boolean totalColor(color px)
 {
-  return green(px) >100 && red(px)+blue(px) <170;
+  return green(px) >140 && red(px)+blue(px) <260;
 }
 
 void draw() {
