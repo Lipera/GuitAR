@@ -10,7 +10,7 @@ color green = color(0, 0, 0); //middle
 color blue = color(0, 0, 255); //ring
 
 
-color yellow = color(255, 0, 0); //detected
+color yellow = color(255, 0, 0); //detected (red is more visible)
 color purple = color(0, 255, 0); //marker
 
 PointKMean[] pointsPrevious = new PointKMean[4];
@@ -20,8 +20,8 @@ int frames =0;
 void setup() {
   size(640, 480);   
     //video = new Capture(this, 640, 480, 30);
-    //video = new Capture(this, "name=Microsoft® LifeCam VX-2000,size=640x480,fps=30");
-    video = new Capture(this, "name=Logitech HD Webcam C615,size=640x480,fps=30");
+    video = new Capture(this, "name=HD Webcam C615,size=640x480,fps=30");
+   // video = new Capture(this, "name=Logitech HD Webcam C615,size=640x480,fps=30");
   video.start();
 }
 
@@ -33,7 +33,7 @@ void captureEvent(Capture video) {
 //detect if the point is dominantly green
 boolean totalColor(color px)
 {
-  return green(px) >140 && red(px)+blue(px) <260;
+  return green(px) >160 && red(px)+blue(px) <300;
 }
 
 void draw() {
@@ -81,7 +81,7 @@ void draw() {
         && totalColor(px_left) && totalColor(px_right)&&  totalColor(px_up2) && totalColor(px_down2) 
         && totalColor(px_left2) && totalColor(px_right2) )
       {
-        luminanceDetector.pixels[y * video.width + x] = yellow; //color every detected pixels in red
+        luminanceDetector.pixels[y * video.width + x] = red; //color every detected pixels in red
         PointKMean p = new PointKMean(x, y);
         if (points.size() == 0)
         {
@@ -238,7 +238,7 @@ PointKMean[] sortPoints( List points)
 
 void colorAround(PointKMean p, PImage luminanceDetector, color couleur)
 {
-  luminanceDetector.pixels[(p.getY()-1) * width + p.getX()] = couleur;
+
   luminanceDetector.pixels[(p.getY()+1) * width + p.getX()] = couleur;
   luminanceDetector.pixels[p.getY() * width + (p.getX()-1)] = couleur;
   luminanceDetector.pixels[p.getY() * width + (p.getX()+1)] = couleur;
